@@ -6,7 +6,7 @@ on:
       image_name:
         description: '镜像名 (例如: patchman ,foundry ,rosetta ,proteinmpnn ,ligandmpnn ,rfdiffusion ,picap ,alphared https://hub.docker.com/r/rosettacommons)'
         required: true
-        default: 'pyrosetta'
+        default: 'rosetta'
 
 jobs:
   sync:
