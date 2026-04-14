@@ -1,4 +1,4 @@
-name: Docker to HuggingFace Sync
+name: Docker rosettacommons/foundry to HuggingFace Sync
 
 on:
   workflow_dispatch: # 支持手动点击运行
