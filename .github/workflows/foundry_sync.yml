@@ -40,4 +40,4 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           pip install -U "huggingface_hub[cli]"
-          huggingface-cli upload jiangyun007/docker-backups foundry.tar.zst foundry.tar.zst --repo-type dataset
+          hf upload jiangyun007/docker-backups foundry.tar.zst foundry.tar.zst --repo-type dataset
