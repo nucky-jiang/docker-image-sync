@@ -3,15 +3,27 @@ name: Universal Docker to HF Sync
 on:
   workflow_dispatch:
     inputs:
-      # 现在你可以输入任何 Docker Hub 上的镜像了！
+      # 1. 镜像名：必填
       docker_image:
-        description: '请输入完整的 Docker 镜像名 (例如: nginx, 或者 pytorch/pytorch)'
+        description: '1. [必填] 原始 Docker 镜像名 (例: nginx, pytorch/pytorch)'
         required: true
-        default: 'ubuntu'
+
+      # 2. 版本标签：必填，保留 latest 作为默认
       image_tag:
-        description: '请输入镜像的 Tag (默认 latest)'
+        description: '2. [必填] 镜像 Tag 版本'
         required: true
         default: 'latest'
+
+      # 3. HF 仓库地址：必填，默认值为你的账号名
+      hf_repo:
+        description: '3. [必填] Hugging Face 目标仓库'
+        required: true
+        default: 'jiangyun007'
+
+      # 4. HF 存放路径：必填，无默认值
+      hf_base_dir:
+        description: '4. [必填] 仓库下的分类目录路径 (例: docker-images)'
+        required: true
 
 jobs:
   sync:
@@ -35,8 +47,7 @@ jobs:
           RAW_IMAGE="${{ github.event.inputs.docker_image }}"
           TAG="${{ github.event.inputs.image_tag }}"
           
-          # 【核心逻辑】：将镜像名中的斜杠 '/' 替换为下划线 '_'
-          # 防止带有组织名的镜像（如 a/b）破坏 Hugging Face 的文件夹结构
+          # 【安全处理】将原始镜像名中的斜杠 '/' 替换为下划线 '_'
           SAFE_NAME=$(echo $RAW_IMAGE | tr '/' '_')
           
           echo "==== 开始拉取镜像: $RAW_IMAGE:$TAG ===="
@@ -53,13 +64,21 @@ jobs:
         run: |
           pip install -U "huggingface_hub[cli]"
           
+          # 读取传入的变量
           RAW_IMAGE="${{ github.event.inputs.docker_image }}"
-          # 同样进行安全重命名
+          HF_REPO="${{ github.event.inputs.hf_repo }}"
+          BASE_DIR="${{ github.event.inputs.hf_base_dir }}"
+          
           SAFE_NAME=$(echo $RAW_IMAGE | tr '/' '_')
           FILENAME="$SAFE_NAME.tar.zst"
           
-          # 按照你的规则拼接目标目录: docker-images/{镜像名}/{文件名}
-          TARGET_PATH="docker-images/$SAFE_NAME/$FILENAME"
+          # 清理路径末尾可能多余的斜杠，拼接最终路径
+          BASE_DIR=$(echo "$BASE_DIR" | sed 's:/*$::')
+          TARGET_PATH="$BASE_DIR/$SAFE_NAME/$FILENAME"
           
-          echo "==== 开始上传至 HF 路径: $TARGET_PATH ===="
-          hf upload jiangyun007/docker-images $FILENAME $TARGET_PATH --repo-type dataset
+          echo "==== 准备就绪 ===="
+          echo "上传至仓库: $HF_REPO"
+          echo "最终存储路径为: $TARGET_PATH"
+          
+          # 执行上传
+          hf upload $HF_REPO $FILENAME $TARGET_PATH --repo-type dataset
