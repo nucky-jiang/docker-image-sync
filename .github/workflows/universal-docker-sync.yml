@@ -3,27 +3,28 @@ name: Universal Docker to HF Sync
 on:
   workflow_dispatch:
     inputs:
-      # 1. 镜像名：必填
+      # 1. 镜像名
       docker_image:
         description: '1. [必填] 原始 Docker 镜像名 (例: nginx, pytorch/pytorch)'
         required: true
 
-      # 2. 版本标签：必填，保留 latest 作为默认
+      # 2. 版本标签
       image_tag:
         description: '2. [必填] 镜像 Tag 版本'
         required: true
         default: 'latest'
 
-      # 3. HF 仓库地址：必填，默认值为你的账号名
-      hf_repo:
-        description: '3. [必填] Hugging Face 目标仓库'
+      # 3. HF 用户名 ( jiangyun007)
+      hf_username:
+        description: '3. [必填] Hugging Face 用户名'
         required: true
         default: 'jiangyun007'
 
-      # 4. HF 存放路径：必填，无默认值
-      hf_base_dir:
-        description: '4. [必填] 仓库下的分类目录路径 (例: docker-images)'
+      # 4. HF 仓库名
+      hf_dataset:
+        description: '4. [必填] Hugging Face 仓库名 (例: docker-images)'
         required: true
+        default: 'docker-images'
 
 jobs:
   sync:
@@ -66,19 +67,21 @@ jobs:
           
           # 读取传入的变量
           RAW_IMAGE="${{ github.event.inputs.docker_image }}"
-          HF_REPO="${{ github.event.inputs.hf_repo }}"
-          BASE_DIR="${{ github.event.inputs.hf_base_dir }}"
+          HF_USER="${{ github.event.inputs.hf_username }}"
+          HF_DATASET="${{ github.event.inputs.hf_dataset }}"
+          
+          # 【核心修复】：将用户输入的两部分，拼接成 HF 要求的标准格式
+          FULL_REPO="$HF_USER/$HF_DATASET"
           
           SAFE_NAME=$(echo $RAW_IMAGE | tr '/' '_')
           FILENAME="$SAFE_NAME.tar.zst"
           
-          # 清理路径末尾可能多余的斜杠，拼接最终路径
-          BASE_DIR=$(echo "$BASE_DIR" | sed 's:/*$::')
-          TARGET_PATH="$BASE_DIR/$SAFE_NAME/$FILENAME"
+          # 内部目录直接使用镜像安全名，不再嵌套额外的 docker-images 文件夹
+          TARGET_PATH="$SAFE_NAME/$FILENAME"
           
           echo "==== 准备就绪 ===="
-          echo "上传至仓库: $HF_REPO"
-          echo "最终存储路径为: $TARGET_PATH"
+          echo "上传至仓库: $FULL_REPO"
+          echo "存储路径为: $TARGET_PATH"
           
           # 执行上传
-          hf upload $HF_REPO $FILENAME $TARGET_PATH --repo-type dataset
+          hf upload $FULL_REPO $FILENAME $TARGET_PATH --repo-type dataset
