@@ -40,6 +40,4 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           pip install -U "huggingface_hub[cli]"
-          # 请将下面的 <你的HF用户名> 替换为你真实的 HF ID
-          # 仓库类型必须指定为 dataset
-          huggingface-cli upload <jiangyun007>/docker-backups foundry.tar.zst foundry.tar.zst --repo-type dataset
+          huggingface-cli upload jiangyun007/docker-backups foundry.tar.zst foundry.tar.zst --repo-type dataset
