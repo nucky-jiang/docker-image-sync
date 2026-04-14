@@ -1,0 +1,65 @@
+name: Universal Docker to HF Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      # 现在你可以输入任何 Docker Hub 上的镜像了！
+      docker_image:
+        description: '请输入完整的 Docker 镜像名 (例如: nginx, 或者 pytorch/pytorch)'
+        required: true
+        default: 'ubuntu'
+      image_tag:
+        description: '请输入镜像的 Tag (默认 latest)'
+        required: true
+        default: 'latest'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Pull and Compress
+        run: |
+          sudo apt-get update && sudo apt-get install -y zstd
+          
+          RAW_IMAGE="${{ github.event.inputs.docker_image }}"
+          TAG="${{ github.event.inputs.image_tag }}"
+          
+          # 【核心逻辑】：将镜像名中的斜杠 '/' 替换为下划线 '_'
+          # 防止带有组织名的镜像（如 a/b）破坏 Hugging Face 的文件夹结构
+          SAFE_NAME=$(echo $RAW_IMAGE | tr '/' '_')
+          
+          echo "==== 开始拉取镜像: $RAW_IMAGE:$TAG ===="
+          docker pull $RAW_IMAGE:$TAG
+          
+          echo "==== 开始打包与压缩 ===="
+          docker save $RAW_IMAGE:$TAG -o $SAFE_NAME.tar
+          zstd -T0 $SAFE_NAME.tar -o $SAFE_NAME.tar.zst
+          rm $SAFE_NAME.tar
+
+      - name: Upload to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          pip install -U "huggingface_hub[cli]"
+          
+          RAW_IMAGE="${{ github.event.inputs.docker_image }}"
+          # 同样进行安全重命名
+          SAFE_NAME=$(echo $RAW_IMAGE | tr '/' '_')
+          FILENAME="$SAFE_NAME.tar.zst"
+          
+          # 按照你的规则拼接目标目录: docker-images/{镜像名}/{文件名}
+          TARGET_PATH="docker-images/$SAFE_NAME/$FILENAME"
+          
+          echo "==== 开始上传至 HF 路径: $TARGET_PATH ===="
+          hf upload jiangyun007/docker-images $FILENAME $TARGET_PATH --repo-type dataset
