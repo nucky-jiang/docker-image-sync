@@ -1,0 +1,50 @@
+name: Sync Rosetta Images to Dedicated Folders
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_name:
+        description: '镜像名 (例如: patchman ,foundry ,rosetta ,proteinmpnn ,ligandmpnn ,rfdiffusion ,picap ,alphared https://hub.docker.com/r/rosettacommons)'
+        required: true
+        default: 'pyrosetta'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Pull and Compress
+        run: |
+          sudo apt-get update && sudo apt-get install -y zstd
+          IMAGE_NAME=${{ github.event.inputs.image_name }}
+          
+          docker pull rosettacommons/$IMAGE_NAME:latest
+          docker save rosettacommons/$IMAGE_NAME:latest -o $IMAGE_NAME.tar
+          zstd -T0 $IMAGE_NAME.tar -o $IMAGE_NAME.tar.zst
+          rm $IMAGE_NAME.tar
+
+      - name: Upload to HF
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          pip install -U "huggingface_hub[cli]"
+          IMAGE_NAME=${{ github.event.inputs.image_name }}
+          FILENAME="$IMAGE_NAME.tar.zst"
+          
+          # 核心修正：
+          # 1. 仓库名改为 docker-images
+          # 2. 远程路径设置为 $IMAGE_NAME/$FILENAME，即 文件夹/文件名
+          hf upload jiangyun007/docker-images \
+                    $FILENAME \
+                    $IMAGE_NAME/$FILENAME \
+                    --repo-type dataset
